@@ -36,12 +36,19 @@ While ($VM.State -ne "Off") {
     }
 
 "Mounting Drive..."
-$DriveLetter = (Mount-VHD -Path $VHD.Path -PassThru | Get-Disk | Get-Partition | Get-Volume | Where-Object {$_.DriveLetter} | ForEach-Object DriveLetter)
+
+$MountedVHD = Mount-VHD -Path $VHD.Path -PassThru
+$MountedDisk = ($MountedVHD | Get-Disk)
+$MountedPartition = ($MountedDisk | Get-Partition | Where-Object -Property IsHidden -EQ $false | Select-Object -First 1)
+$DriveLetter = 'R'
+$MountedPartition | Set-Partition -NewDriveLetter $DriveLetter
 
 "Copying GPU Files - this could take a while..."
 Add-VMGPUPartitionAdapterFiles -hostname $Hostname -DriveLetter $DriveLetter -GPUName $GPUName
 
 "Dismounting Drive..."
+$AccessPath = $DriveLetter + ":\"
+$MountedPartition | Remove-PartitionAccessPath -AccessPath $AccessPath
 Dismount-VHD -Path $VHD.Path
 
 If ($state_was_running){
